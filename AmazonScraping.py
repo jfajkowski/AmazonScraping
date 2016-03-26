@@ -1,37 +1,19 @@
-import scrapy
-from scrapy.crawler import CrawlerProcess
+from bs4 import BeautifulSoup
+import logging
 import urllib2
 import os
+import requests
 import time
 
 __author__ = "fajqa"
 
-def writeLog(msg):
-    with open(os.path.dirname(os.path.abspath(__file__)) + "/log/AmazonScraping.log", "a") as f:
-        text = time.strftime("[%d.%m.%Y  - %X] ") + msg
-        f.write(text + "\n")
-        print text
+logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+                    filename=os.path.dirname(os.path.abspath(__file__)) + "/log/AmazonScraping.log")
 
-def parseByPath(path):
-    # Open files and parse text
-    list = []
-    writeLog("Opening file: " + path + "...")
-    with open(path, "r") as f_in: list = f_in.read()
-    writeLog("Parsing " + path + "...")
-    list = list.split('\n')[:-1]
-    return list
-
-unique_song_set = set(parseByPath(os.path.dirname(os.path.abspath(__file__)) + "/database/unique_tracks.txt"))
-repeating_song_set = set(parseByPath(os.path.dirname(os.path.abspath(__file__)) + "/database/msd_acquired.txt"))
-
-# Check for repetitions
-writeLog("Deleting repeating songs...")
-for rs in repeating_song_set:
-    unique_song_set = [us for us in unique_song_set if not rs in us[0:17]]
-    writeLog(rs)
-
-for us in unique_song_set:
-    with open(os.path.dirname(os.path.abspath(__file__)) + "/database/checked.txt", "wb") as f_out: f_out.write(us)
+unique_song_set = set()
+with open(os.path.dirname(os.path.abspath(__file__)) + "/database/a.txt") as f_in:
+    for line in f_in:
+        unique_song_set.add(line.rstrip())
 
 # Split by separator
 unique_song_set = [us.split('<SEP>') for us in unique_song_set]
@@ -44,35 +26,21 @@ for us in unique_song_set:
 
 download_links = []
 
+logging.info("Crawling started...")
 
-class AmazonSpider(scrapy.Spider):
-    name = "amazon"
-    allowed_domains = ["amazon.com"]
-    start_urls = None
-
-    def start_requests(self):
-        request = []
-        for us in unique_song_set:
-            request.append(scrapy.Request(us[4], callback=self.parse))
-            request[len(request)-1].meta['us'] = us
-        return request
-
-    def parse(self, response):
-        response.meta['us'].append(response.xpath('//tr[@id="result_0"]/td[1]/div/a/@flashurl').extract())
+for us in unique_song_set:
+    response = requests.get(us[4])
+    soup = BeautifulSoup(response.text, "lxml")
+    soup.find(name="tr", attrs="id")
 
 
-process = CrawlerProcess({
-    'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)'
-})
+# xpath = '//tr[@id="result_0"]/td[1]/div/a/@flashurl'
 
-writeLog("Crawling started...")
-process.crawl(AmazonSpider)
-process.start()
-writeLog("Crawling ended...")
+logging.info("Crawling ended...")
 
 for us in unique_song_set:
     if len(us[5]) == 0:
-        writeLog('File: ' + us[2] + ' - ' + us[3] + ": NOT FOUND")
+        logging.info('File: ' + us[2] + ' - ' + us[3] + ": NOT FOUND")
 
     else:
         response = urllib2.urlopen(us[5][0])
@@ -85,4 +53,4 @@ for us in unique_song_set:
 
         with open(us[0] + '.mp3', "wb") as f_out: f_out.write(track)
 
-        writeLog('File: ' + us[2] + ' - ' + us[3] + ": SAVED")
+        logging.info('File: ' + us[2] + ' - ' + us[3] + ": SAVED")
