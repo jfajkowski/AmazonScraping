@@ -1,34 +1,14 @@
 from bs4 import BeautifulSoup
-import logging
 import urllib2
-import os
 import requests
-import random
+import os
 import time
+from random import random
 from mutagen.mp3 import MP3
 from mutagen.easyid3 import EasyID3
 from difflib import SequenceMatcher as SM
 
 __author__ = "fajqa"
-
-
-def prepare_logger():
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(message)s',
-                        datefmt='%m/%d/%Y %H:%M:%S',
-                        filename=os.path.dirname(os.path.abspath(__file__)) + "/log/AmazonScraping.log",
-                        filemode='w')
-    # define a Handler which writes INFO messages or higher to the sys.stderr
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    # disable requests INFO messages
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    # set a format which is simpler for console use
-    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-    # tell the handler to use this format
-    console.setFormatter(formatter)
-    # add the handler to the root logger
-    logging.getLogger('').addHandler(console)
 
 
 def prepare_song_set():
@@ -37,29 +17,67 @@ def prepare_song_set():
     # Read from file
     with open(os.path.dirname(os.path.abspath(__file__)) + "/database/amazon_tracks.txt") as f_in:
         for line in f_in:
-                unique_song_set.add(line.rstrip())
+            unique_song_set.add(line.rstrip())
 
     # Split by separator
-    unique_song_set = [us.split('<SEP>') for us in unique_song_set]
+    unique_song_set = [unique_song.split('<SEP>') for unique_song in unique_song_set]
 
     # Construct search list
-    for us in unique_song_set:
-        us.append(
+    for unique_song in unique_song_set:
+        unique_song.append(
             'http://www.amazon.com/s/ref=nb_sb_noss?url=search-alias%3Ddigital-music&field-keywords=' +
-            us[2].replace(' ', '+') + '+' + us[3].replace(' ', '+'))
+            urllib2.quote(unique_song[2].replace(' ', '+') + '+' + unique_song[3].replace(' ', '+')))
 
-    logging.info("Ready to crawl...")
+    log("Ready to crawl...")
     return unique_song_set
 
 
-def create_directory(us):
-    directory = "/home/fajqa/Documents/Python/AmazonScraping/songs/" + us[0][2] + "/" + us[0][3] + "/" + us[0][4] + "/"
+def crawl(unique_song_set):
+    log("Crawling started...")
+
+    for unique_song in unique_song_set:
+        try:
+            search_and_download(unique_song)
+            song_communicate("[SAVED]", unique_song)
+        except AttributeError:
+            song_communicate("[NOT FOUND]", unique_song)
+        except (urllib2.HTTPError, urllib2.URLError) as e:
+            print e
+        except Exception as e:
+            song_communicate("[ERROR:" + e.message + "]", unique_song)
+        finally:
+            time.sleep(2+random())
+
+    log("Crawling ended...")
+
+
+def search_and_download(unique_song):
+    response = requests.get(unique_song[4])
+    soup = BeautifulSoup(response.text, "lxml")
+
+    link = soup.find(id='result_0').contents[0].div.a.attrs['flashurl']
+
+    response = urllib2.urlopen(link)
+    track = response.read()
+
+    create_directory(unique_song)
+
+    with open(unique_song[0] + '.mp3', "wb") as f_out: f_out.write(track)
+
+    check_mp3(unique_song, unique_song[0] + '.mp3')
+
+
+def create_directory(unique_song):
+    directory = os.path.dirname(os.path.abspath(__file__)) + "/songs/" + \
+                unique_song[0][2] + "/" + \
+                unique_song[0][3] + "/" + \
+                unique_song[0][4] + "/"
     if not os.path.exists(directory):
         os.makedirs(directory)
     os.chdir(directory)
 
 
-def check_mp3(us, mp3_file):
+def check_mp3(unique_song, mp3_file):
     mp3 = MP3(mp3_file, ID3=EasyID3)
     duration = mp3.info.length
     title = mp3.tags['title'][0]
@@ -67,42 +85,18 @@ def check_mp3(us, mp3_file):
     if not 25 < duration < 35:
         raise Exception("Duration: " + str(duration) + "s is not correct.")
 
-    if not 0.1 < SM(None, us[3], title).ratio() <= 1:
-        raise Exception("Title: " + title + " differs from: " + us[3])
+    if not 0.5 < SM(None, unique_song[3], title).ratio() <= 1:
+        raise Exception("Title: " + title + " differs from: " + unique_song[3])
 
 
-def search_and_download(us):
-    response = requests.get(us[4])
-    soup = BeautifulSoup(response.text, "lxml")
-
-    try:
-        link = soup.find(id='result_0').contents[0].div.a.attrs['flashurl']
-        response = urllib2.urlopen(link)
-        track = response.read()
-
-        create_directory(us)
-
-        with open(us[0] + '.mp3', "wb") as f_out: f_out.write(track)
-
-        check_mp3(us, us[0] + '.mp3')
-
-        logging.info('[File] ID: ' + us[0] + " - SAVED")
-    except AttributeError:
-        logging.warning('[File] ID: ' + us[0] + " - NOT FOUND")
-    except Exception as e:
-        logging.warning("[File] ID: " + us[0] + " - ERROR: " + e.message)
+def log(text_line):
+    print "[" + time.strftime("%X") + "] " + text_line
 
 
-def crawl(unique_song_set):
-    logging.info("Crawling started...")
+def song_communicate(communicate, unique_song):
+    log(communicate + " " + unique_song[0] + " (" + unique_song[2] + " - " + unique_song[3] + ")")
 
-    for us in unique_song_set:
-        search_and_download(us)
-        time.sleep(0.5)
-
-    logging.info("Crawling ended...")
 
 if __name__ == '__main__':
-    prepare_logger()
     unique_song_set = prepare_song_set()
     crawl(unique_song_set)
