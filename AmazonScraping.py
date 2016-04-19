@@ -9,7 +9,7 @@ from mutagen.easyid3 import EasyID3
 from difflib import SequenceMatcher as SM
 
 __author__ = "fajqa"
-
+script_dir = os.path.abspath(__file__)
 
 def prepare_song_set():
     unique_song_set = set()
@@ -44,7 +44,7 @@ def crawl(unique_song_set):
         except (urllib2.HTTPError, urllib2.URLError) as e:
             print e
         except Exception as e:
-            song_communicate("[ERROR:" + e.message + "]", unique_song)
+            song_communicate("[ERROR] " + '[' + e.message + ']', unique_song)
         finally:
             time.sleep(2+random())
 
@@ -68,7 +68,7 @@ def search_and_download(unique_song):
 
 
 def create_directory(unique_song):
-    directory = os.path.dirname(os.path.abspath(__file__)) + "/songs/" + \
+    directory = os.path.dirname(script_dir) + "/songs/" + \
                 unique_song[0][2] + "/" + \
                 unique_song[0][3] + "/" + \
                 unique_song[0][4] + "/"
@@ -81,11 +81,15 @@ def check_mp3(unique_song, mp3_file):
     mp3 = MP3(mp3_file, ID3=EasyID3)
     duration = mp3.info.length
     title = mp3.tags['title'][0]
+    artist = mp3.tags['artist'][0]
 
     if not 25 < duration < 35:
         raise Exception("Duration: " + str(duration) + "s is not correct.")
 
-    if not 0.5 < SM(None, unique_song[3], title).ratio() <= 1:
+    if not 0.75 < SM(None, unique_song[2].lower(), artist.lower()).ratio() <= 1:
+        raise Exception("Artist: " + artist + " differs from: " + unique_song[2])
+
+    if not 0.75 < SM(None, unique_song[3].lower(), title.lower()).ratio() <= 1:
         raise Exception("Title: " + title + " differs from: " + unique_song[3])
 
 
@@ -94,7 +98,7 @@ def log(text_line):
 
 
 def song_communicate(communicate, unique_song):
-    log(communicate + " " + unique_song[0] + " (" + unique_song[2] + " - " + unique_song[3] + ")")
+    log(communicate + " " + unique_song[0] + " [ARTIST] " + unique_song[2] + " [TITLE] " + unique_song[3])
 
 
 if __name__ == '__main__':
