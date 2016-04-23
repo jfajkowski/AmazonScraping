@@ -80,17 +80,24 @@ def create_directory(unique_song):
 def check_mp3(unique_song, mp3_file):
     mp3 = MP3(mp3_file, ID3=EasyID3)
     duration = mp3.info.length
-    title = mp3.tags['title'][0]
-    artist = mp3.tags['artist'][0]
+
+    real_title = mp3.tags['title'][0].lower()
+    real_artist = mp3.tags['artist'][0].lower()
+
+    wanted_title = unique_song[3].lower()
+    wanted_artist = unique_song[2].lower()
+
+    wanted_title.decode('unicode-escape')
+    wanted_artist.decode('unicode-escape')
 
     if not 25 < duration < 35:
         raise Exception("Duration: " + str(duration) + "s is not correct.")
 
-    if not 0.75 < SM(None, unique_song[2].lower(), artist.lower()).ratio() <= 1:
-        raise Exception("Artist: " + artist + " differs from: " + unique_song[2])
+    if not 0.75 < SM(None, wanted_artist, real_artist).ratio() <= 1:
+        raise Exception("Artist: " + real_artist + " differs from: " + wanted_artist)
 
-    if not 0.75 < SM(None, unique_song[3].lower(), title.lower()).ratio() <= 1:
-        raise Exception("Title: " + title + " differs from: " + unique_song[3])
+    if not 0.75 < SM(None, wanted_title, wanted_title).ratio() <= 1:
+        raise Exception("Title: " + real_title + " differs from: " + wanted_title)
 
 
 def log(text_line):
