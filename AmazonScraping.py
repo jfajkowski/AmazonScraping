@@ -44,7 +44,7 @@ def crawl(unique_song_set):
         except (urllib2.HTTPError, urllib2.URLError) as e:
             print e
         except Exception as e:
-            song_communicate("[ERROR] " + '[' + e.message + ']', unique_song)
+            song_communicate("[ERROR] " + '[' + "%s" % e + ']', unique_song)
         finally:
             time.sleep(2+random())
 
@@ -87,8 +87,10 @@ def check_mp3(unique_song, mp3_file):
     wanted_title = unique_song[3].lower()
     wanted_artist = unique_song[2].lower()
 
-    wanted_title.decode('unicode-escape')
-    wanted_artist.decode('unicode-escape')
+    wanted_title = wanted_title.decode("UTF-8", errors="ignore")
+    wanted_artist = wanted_artist.decode("UTF-8", errors="ignore")
+    real_title = real_title.decode("UTF-8", errors="ignore")
+    real_artist = real_artist.decode("UTF-8", errors="ignore")
 
     if not 25 < duration < 35:
         raise Exception("Duration: " + str(duration) + "s is not correct.")
@@ -96,7 +98,7 @@ def check_mp3(unique_song, mp3_file):
     if not 0.75 < SM(None, wanted_artist, real_artist).ratio() <= 1:
         raise Exception("Artist: " + real_artist + " differs from: " + wanted_artist)
 
-    if not 0.75 < SM(None, wanted_title, wanted_title).ratio() <= 1:
+    if not 0.75 < SM(None, wanted_title, real_title).ratio() <= 1:
         raise Exception("Title: " + real_title + " differs from: " + wanted_title)
 
 
