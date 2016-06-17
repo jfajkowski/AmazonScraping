@@ -41,21 +41,20 @@ def crawl(unique_song_set):
             song_communicate("[SAVED]", unique_song)
         except AttributeError:
             song_communicate("[NOT FOUND]", unique_song)
+            time.sleep(random())
         except (Exception, urllib2.HTTPError, urllib2.URLError) as e:
             song_communicate("[ERROR] " + '[' + "%s" % e + ']', unique_song)
-        finally:
-            time.sleep(2+random())
-
+            time.sleep(random())
     log("Crawling ended...")
 
 
 def search_and_download(unique_song):
-    response = requests.get(unique_song[4], timeout=5)
+    response = requests.get(unique_song[4], timeout=15)
     soup = BeautifulSoup(response.text, "lxml")
 
     link = soup.find(id='result_0').contents[0].div.a.attrs['flashurl']
 
-    response = urllib2.urlopen(link, timeout=5)
+    response = urllib2.urlopen(link, timeout=15)
     track = response.read()
 
     create_directory(unique_song)
@@ -94,11 +93,11 @@ def check_mp3(unique_song, mp3_file):
         raise Exception("Duration: " + str(duration) + "s is not correct.")
 
     if not 0.75 < SM(None, wanted_artist, real_artist).ratio() <= 1:
-        if wanted_artist not in real_artist or real_artist not in wanted_artist:
+        if wanted_artist not in real_artist:
             raise Exception("Artist: " + real_artist + " differs from: " + wanted_artist)
 
     if not 0.75 < SM(None, wanted_title, real_title).ratio() <= 1:
-        if wanted_title not in real_title or real_title not in wanted_title:
+        if wanted_title not in real_title:
             raise Exception("Title: " + real_title + " differs from: " + wanted_title)
 
 
